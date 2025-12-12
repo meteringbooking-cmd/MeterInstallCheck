@@ -77,7 +77,6 @@ imageInput.addEventListener('change', e => {
         const img = new Image();
         img.src = event.target.result;
         img.onload = () => {
-            // Optional: resize large images
             const canvas = document.createElement('canvas');
             const MAX_WIDTH = 1024;
             let scale = Math.min(1, MAX_WIDTH / img.width);
@@ -89,6 +88,8 @@ imageInput.addEventListener('change', e => {
             analyzeButton.disabled = false;
             analyzeButton.classList.remove('opacity-50', 'cursor-not-allowed');
             resultText.textContent = 'Ready to analyze.';
+            resultText.classList.remove('text-red-600', 'text-green-600');
+            resultText.classList.add('text-gray-700');
         };
     };
     reader.readAsDataURL(file);
@@ -100,6 +101,8 @@ function resetImage() {
     analyzeButton.disabled = true;
     analyzeButton.classList.add('opacity-50', 'cursor-not-allowed');
     resultText.textContent = 'Your analysis will appear here.';
+    resultText.classList.remove('text-red-600', 'text-green-600');
+    resultText.classList.add('text-gray-700');
 }
 
 analyzeButton.addEventListener('click', async () => {
@@ -109,6 +112,8 @@ analyzeButton.addEventListener('click', async () => {
     analyzeButton.classList.add('opacity-50', 'cursor-not-allowed');
     loadingSpinner.classList.remove('hidden');
     resultText.textContent = '';
+    resultText.classList.remove('text-red-600', 'text-green-600');
+    resultText.classList.add('text-gray-700');
 
     const payload = {
         contents: [
@@ -134,9 +139,23 @@ analyzeButton.addEventListener('click', async () => {
         const data = await response.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis could be generated.";
         resultText.textContent = text;
+
+        // Color coding
+        if (/good/i.test(text)) {
+            resultText.classList.remove('text-gray-700', 'text-red-600');
+            resultText.classList.add('text-green-600');
+        } else if (/bad/i.test(text)) {
+            resultText.classList.remove('text-gray-700', 'text-green-600');
+            resultText.classList.add('text-red-600');
+        } else {
+            resultText.classList.remove('text-red-600', 'text-green-600');
+            resultText.classList.add('text-gray-700');
+        }
     } catch (err) {
         console.error(err);
         resultText.textContent = 'An error occurred during analysis. Please try again.';
+        resultText.classList.remove('text-gray-700', 'text-green-600');
+        resultText.classList.add('text-red-600');
     } finally {
         loadingSpinner.classList.add('hidden');
         analyzeButton.disabled = false;
