@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Meter Quality Check</title>
-    <!-- Use Tailwind CSS for modern styling -->
+    <title>Smart Meter Quality Check (Robust)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -14,6 +13,7 @@
         .container {
             max-width: 800px;
         }
+        /* Custom spinner for better loading state */
         .loading-indicator {
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-top: 4px solid #3b82f6;
@@ -29,157 +29,225 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <div class="container bg-white p-8 rounded-2xl shadow-lg border border-gray-200 w-full">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Smart Meter Quality Check</h1>
-        <p class="text-center text-gray-600 mb-6">Upload a picture of a smart meter installation for analysis.</p>
+    <div class="container bg-white p-8 rounded-2xl shadow-2xl border border-gray-200 w-full">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">⚡ Smart Meter Quality Check</h1>
+        <p class="text-center text-gray-600 mb-6">Upload a picture of a smart meter installation for AI-driven quality analysis.</p>
 
-        <div class="mb-6 flex flex-col items-center">
-            <label for="image-input" class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md transition-colors duration-200 ease-in-out">
-                Choose Image
-            </label>
-            <input type="file" id="image-input" accept="image/*" class="hidden">
-            <span id="file-name" class="mt-2 text-gray-500 text-sm">No file chosen</span>
+        <div class="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-xl">
+            <p class="text-sm font-semibold text-yellow-800">⚠️ **Security Warning:** For a **production** application, the API Key should *never* be exposed in the frontend code. This field is for **testing and demonstration only.**</p>
+            <label for="api-key-input" class="block text-sm font-medium text-gray-700 mt-3 mb-1">Gemini API Key</label>
+            <input type="password" id="api-key-input" placeholder="Paste your API Key here" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
         </div>
 
-        <div id="image-preview-container" class="flex justify-center items-center mb-6 overflow-hidden rounded-xl border border-gray-300 bg-gray-50">
-            <img id="image-preview" src="https://placehold.co/600x400/E5E7EB/4B5563?text=Image+Preview" alt="Image Preview" class="max-h-full w-full object-contain rounded-xl">
+        <div class="mb-6 flex flex-col items-center">
+            <label for="image-input" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-colors duration-200 ease-in-out text-lg">
+                Upload Installation Image
+            </label>
+            <input type="file" id="image-input" accept="image/jpeg, image/png, image/webp" class="hidden">
+            <span id="file-name" class="mt-3 text-gray-500 text-sm">No file chosen. Max size: 4MB</span>
+        </div>
+
+        <div id="image-preview-container" class="flex justify-center items-center mb-6 h-64 overflow-hidden rounded-xl border-4 border-dashed border-gray-300 bg-gray-50">
+            <img id="image-preview" src="https://placehold.co/600x400/E5E7EB/4B5563?text=Image+Preview" alt="Image Preview" class="max-h-full w-full object-contain">
         </div>
 
         <div class="flex justify-center mb-6">
-            <button id="analyze-button" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-xl shadow-md transition-colors duration-200 ease-in-out">
-                Analyze Image
+            <button id="analyze-button" disabled class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed">
+                Analyze Installation
             </button>
         </div>
 
-        <div id="analysis-results" class="bg-gray-50 p-6 rounded-xl border border-gray-200 min-h-[100px] flex items-center justify-center">
-            <div id="loading-spinner" class="hidden loading-indicator"></div>
-            <p id="result-text" class="text-gray-700 text-center">Your analysis will appear here.</p>
+        <div id="analysis-results" class="bg-white p-6 rounded-xl border-2 border-gray-200 min-h-[120px] flex flex-col items-center justify-center transition-all duration-300">
+            <div id="loading-spinner" class="hidden loading-indicator mb-3"></div>
+            <p id="result-text" class="text-gray-700 text-center whitespace-pre-wrap">Please upload an image and paste your API key to begin the analysis.</p>
         </div>
     </div>
 
     <script>
+        // DOM Elements
         const imageInput = document.getElementById('image-input');
         const fileNameSpan = document.getElementById('file-name');
         const imagePreview = document.getElementById('image-preview');
         const analyzeButton = document.getElementById('analyze-button');
         const loadingSpinner = document.getElementById('loading-spinner');
         const resultText = document.getElementById('result-text');
-
+        const apiKeyInput = document.getElementById('api-key-input');
+        
+        // State Variables
         let base64Image = null;
         let imageMimeType = null;
+        const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB limit (common for APIs)
 
-        // API Configuration
-        // Please insert your Gemini API key here to enable analysis.
-        // You can get one from the Google Cloud console.
-        const apiKey = "AIzaSyDePqN4yD0J_2zO8b68j0b2zF_Dqvdot4s";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-        const systemPrompt = "You are a highly-trained smart meter quality control expert. Your task is to analyze images of smart meter installations and determine if they are 'Good' or 'Bad.' Provide a clear, concise, and professional analysis for each image. If the installation is 'Bad,' you must identify the specific issues and suggest a corrective action. If the installation is 'Good,' simply state that it is a good installation.";
+        // API Configuration (System Prompt)
+        const systemPrompt = "You are a highly-trained smart meter quality control expert. Your task is to analyze images of smart meter installations and determine if they are 'Good' or 'Bad.' Provide a clear, concise, and professional analysis for each image. If the installation is 'Bad,' you must identify the specific issues and suggest a corrective action. Use strong Markdown formatting (bold, lists, etc.) to make the report clear. If the installation is 'Good,' simply state: **Result: Good Installation** followed by a short summary.";
 
+        // --- Helper Functions ---
+
+        /** Updates the analysis button's state (enabled/disabled) */
+        function updateButtonState() {
+            const hasImage = base64Image !== null;
+            const hasApiKey = apiKeyInput.value.trim() !== '';
+            analyzeButton.disabled = !(hasImage && hasApiKey);
+            
+            if (analyzeButton.disabled) {
+                analyzeButton.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                analyzeButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        /** Resets the analysis results display */
+        function resetAnalysis() {
+            loadingSpinner.classList.add('hidden');
+            resultText.classList.remove('text-red-600', 'text-green-600', 'font-bold');
+            resultText.textContent = 'Ready to analyze.';
+        }
+
+        // --- Event Listeners ---
+        
+        // Listen for API Key changes
+        apiKeyInput.addEventListener('input', updateButtonState);
+
+        // Listen for file selection
         imageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (file) {
-                fileNameSpan.textContent = file.name;
-                imageMimeType = file.type; // Capture the actual MIME type of the file
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        imagePreview.src = event.target.result;
-                        // Strip the data URL prefix more reliably
-                        base64Image = event.target.result.replace(/^data:.+;base64,/, '');
-                        analyzeButton.disabled = false;
-                        analyzeButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                        resultText.textContent = 'Ready to analyze.';
-                        loadingSpinner.classList.add('hidden');
-                    };
-                };
-                reader.readAsDataURL(file);
-            } else {
-                fileNameSpan.textContent = 'No file chosen';
+            base64Image = null;
+            imageMimeType = null;
+            
+            if (!file) {
+                fileNameSpan.textContent = 'No file chosen. Max size: 4MB';
                 imagePreview.src = 'https://placehold.co/600x400/E5E7EB/4B5563?text=Image+Preview';
-                analyzeButton.disabled = true;
-                analyzeButton.classList.add('opacity-50', 'cursor-not-allowed');
-                resultText.textContent = 'Your analysis will appear here.';
+                resetAnalysis();
+                updateButtonState();
+                return;
             }
+
+            if (file.size > MAX_FILE_SIZE) {
+                fileNameSpan.textContent = `Error: File size (${(file.size / (1024 * 1024)).toFixed(2)}MB) exceeds 4MB limit.`;
+                imagePreview.src = 'https://placehold.co/600x400/EF4444/FFFFFF?text=File+Too+Large';
+                resetAnalysis();
+                updateButtonState();
+                return;
+            }
+
+            fileNameSpan.textContent = file.name;
+            imageMimeType = file.type;
+            const reader = new FileReader();
+            
+            reader.onload = (event) => {
+                imagePreview.src = event.target.result;
+                // Strip the data URL prefix reliably
+                base64Image = event.target.result.replace(/^data:.+;base64,/, '');
+                resetAnalysis();
+                updateButtonState();
+            };
+            
+            reader.onerror = () => {
+                resultText.textContent = 'Could not read file. Please try a different image.';
+                resultText.classList.add('text-red-600');
+            };
+
+            reader.readAsDataURL(file);
         });
 
+        // Listen for analyze button click
         analyzeButton.addEventListener('click', async () => {
-            if (!base64Image) {
-                resultText.textContent = 'Please select an image first.';
+            const apiKey = apiKeyInput.value.trim();
+            if (!base64Image || !apiKey) {
+                resultText.textContent = 'Please select an image and provide an API key.';
+                resultText.classList.add('text-red-600');
                 return;
             }
 
             // Set loading state
-            analyzeButton.disabled = true;
-            analyzeButton.classList.add('opacity-50', 'cursor-not-allowed');
+            updateButtonState(); // Disable button
             loadingSpinner.classList.remove('hidden');
-            resultText.textContent = '';
+            resultText.textContent = 'Analyzing... This may take a moment.';
+            resultText.classList.remove('text-red-600', 'text-green-600');
 
-            const userPrompt = "Please analyze the following smart meter installation image. Is it 'Good' or 'Bad'? Provide a detailed reason, and highlight any potential issues.";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const userPrompt = "Please analyze the following smart meter installation image. Is it 'Good' or 'Bad'? Provide a detailed reason, and highlight any potential issues. Format the final output clearly with headers and lists.";
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: userPrompt },
+                        {
+                            inlineData: {
+                                mimeType: imageMimeType,
+                                data: base64Image
+                            }
+                        }
+                    ]
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            };
 
             try {
-                const payload = {
-                    contents: [{
-                        role: "user",
-                        parts: [
-                            { text: userPrompt },
-                            {
-                                inlineData: {
-                                    mimeType: imageMimeType, // Use the dynamically detected MIME type
-                                    data: base64Image
-                                }
-                            }
-                        ]
-                    }],
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    }
-                };
-
-                // Add exponential backoff for the API call
                 let response;
                 let delay = 1000;
                 let retries = 0;
-                const maxRetries = 5;
+                const maxRetries = 3; // Reduced max retries for a better user experience on frontend
 
+                // Robustness: Simple Exponential Backoff for 429 (Rate Limit)
                 while (retries < maxRetries) {
-                    try {
-                        response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        if (response.status !== 429) {
-                            break;
-                        }
-                    } catch (e) {
-                        // Log a warning for a failed attempt
-                        console.warn(`Attempt ${retries + 1} failed, retrying in ${delay}ms...`);
-                    }
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
+                    if (response.status !== 429) {
+                        break;
+                    }
+                    
+                    console.warn(`Attempt ${retries + 1} failed (Rate Limit 429), retrying in ${delay}ms...`);
                     retries++;
                     await new Promise(resolve => setTimeout(resolve, delay));
                     delay *= 2;
                 }
 
                 if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
+                    const errorJson = await response.json();
+                    let errorMessage = `API call failed with status **${response.status}**.`;
+                    
+                    if (errorJson?.error?.message.includes("API key not valid")) {
+                        errorMessage += "\n\nPlease check your Gemini API key.";
+                    } else if (errorJson?.error?.message) {
+                        errorMessage += `\n\n**Error Details:** ${errorJson.error.message}`;
+                    }
+
+                    throw new Error(errorMessage);
                 }
 
                 const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis could be generated. Please try again with a different image.";
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis could be generated. The API returned an unexpected response structure.";
+                
+                // Enhance user experience by highlighting result status
+                if (text.toLowerCase().includes('good installation')) {
+                    resultText.classList.add('text-green-600', 'font-bold');
+                } else if (text.toLowerCase().includes('bad') || text.toLowerCase().includes('issues')) {
+                    resultText.classList.add('text-red-600', 'font-bold');
+                }
+                
                 resultText.textContent = text;
+
             } catch (error) {
-                console.error('Error:', error);
-                resultText.textContent = 'An error occurred during analysis. Please try again.';
+                console.error('Robust Analysis Error:', error);
+                resultText.textContent = `**Critical Error:** ${error.message || 'An unexpected error occurred during analysis.'}`;
+                resultText.classList.add('text-red-600', 'font-bold');
             } finally {
                 // Reset loading state
                 loadingSpinner.classList.add('hidden');
-                analyzeButton.disabled = false;
-                analyzeButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                updateButtonState(); // Re-enable button if valid image/key
             }
         });
+        
+        // Initial state update
+        updateButtonState();
     </script>
 </body>
 </html>
