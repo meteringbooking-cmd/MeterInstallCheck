@@ -927,43 +927,70 @@ function setupAnnotationCanvas(imageSrc) {
     const canvas = document.getElementById('annotation-canvas');
     const preview = document.getElementById('compliance-preview');
     
-    preview.onload = () => {
-        canvas.width = preview.width;
-        canvas.height = preview.height;
-        canvas.style.width = preview.width + 'px';
-        canvas.style.height = preview.height + 'px';
+    // Wait for image to load, then resize canvas to match
+    const resizeCanvas = () => {
+        const rect = preview.getBoundingClientRect();
+        canvas.width = preview.naturalWidth;
+        canvas.height = preview.naturalHeight;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        
+        // Redraw existing annotations after resize
+        redrawAnnotations();
     };
+    
+    preview.onload = resizeCanvas;
+    window.addEventListener('resize', resizeCanvas);
     
     let isDrawing = false;
     let startX, startY;
+    
+    function redrawAnnotations() {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        state.compliance.annotations.forEach(ann => {
+            ctx.strokeStyle = ann.color;
+            ctx.lineWidth = 4;
+            ctx.setLineDash([]);
+            ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
+            
+            // Add semi-transparent fill
+            ctx.fillStyle = ann.color + '33'; // 20% opacity
+            ctx.fillRect(ann.x, ann.y, ann.width, ann.height);
+        });
+    }
     
     canvas.addEventListener('mousedown', (e) => {
         if (!state.compliance.isAnnotating) return;
         isDrawing = true;
         const rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        startX = (e.clientX - rect.left) * scaleX;
+        startY = (e.clientY - rect.top) * scaleY;
     });
     
     canvas.addEventListener('mousemove', (e) => {
         if (!isDrawing || !state.compliance.isAnnotating) return;
         const rect = canvas.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const currentX = (e.clientX - rect.left) * scaleX;
+        const currentY = (e.clientY - rect.top) * scaleY;
         
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         // Redraw existing annotations
-        state.compliance.annotations.forEach(ann => {
-            ctx.strokeStyle = ann.color;
-            ctx.lineWidth = 3;
-            ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
-        });
+        redrawAnnotations();
         
         // Draw current rectangle
         ctx.strokeStyle = state.compliance.currentColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
+        ctx.setLineDash([5, 5]); // Dashed line for current drawing
         ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
     });
     
@@ -971,20 +998,33 @@ function setupAnnotationCanvas(imageSrc) {
         if (!isDrawing || !state.compliance.isAnnotating) return;
         isDrawing = false;
         const rect = canvas.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         
-        const annotation = {
-            x: startX,
-            y: startY,
-            width: endX - startX,
-            height: endY - startY,
-            color: state.compliance.currentColor,
-            note: ''
-        };
+        const endX = (e.clientX - rect.left) * scaleX;
+        const endY = (e.clientY - rect.top) * scaleY;
         
-        state.compliance.annotations.push(annotation);
+        const width = endX - startX;
+        const height = endY - startY;
+        
+        // Only add annotation if it's not too small
+        if (Math.abs(width) > 10 && Math.abs(height) > 10) {
+            const annotation = {
+                x: startX,
+                y: startY,
+                width: width,
+                height: height,
+                color: state.compliance.currentColor,
+                note: ''
+            };
+            
+            state.compliance.annotations.push(annotation);
+            redrawAnnotations();
+        }
     });
+    
+    // Prevent default drag behavior
+    canvas.addEventListener('dragstart', (e) => e.preventDefault());
 }
 
 // Color Picker
@@ -998,14 +1038,29 @@ document.querySelectorAll('.color-option').forEach(option => {
 
 // Mark as Bad (Enable Annotation)
 document.getElementById('mark-bad-btn').addEventListener('click', () => {
+    if (state.compliance.isAnnotating) {
+        // Already annotating, this is now the submit button
+        submitTrainingData(false);
+        return;
+    }
+    
+    // Enable annotation mode
     state.compliance.isAnnotating = true;
     document.getElementById('annotation-container').classList.add('active');
     document.getElementById('annotation-tools').classList.remove('hidden');
     
     // Change button to submit
     const badBtn = document.getElementById('mark-bad-btn');
-    badBtn.textContent = '💾 Submit Training Data';
-    badBtn.onclick = submitTrainingData;
+    badBtn.innerHTML = '💾 Submit Training Data';
+    badBtn.classList.remove('btn-danger');
+    badBtn.classList.add('btn-primary');
+    
+    // Disable good button while annotating
+    document.getElementById('mark-good-btn').disabled = true;
+    document.getElementById('mark-good-btn').style.opacity = '0.5';
+    
+    // Show instructions
+    alert('Draw rectangles around problem areas on the image, then add notes describing the issues. Click "Submit Training Data" when done.');
 });
 
 // Mark as Good
@@ -1015,7 +1070,12 @@ document.getElementById('mark-good-btn').addEventListener('click', async () => {
 
 // Submit Training Data
 async function submitTrainingData(isGood = false) {
-    const notes = isGood ? 'Good installation' : document.getElementById('annotation-text').value;
+    const notes = isGood ? 'Good installation' : document.getElementById('annotation-text').value || 'Bad installation';
+    
+    if (!isGood && state.compliance.annotations.length === 0 && !document.getElementById('annotation-text').value) {
+        alert('Please either draw annotations on the image or add notes describing the issues.');
+        return;
+    }
     
     const trainingData = {
         image: state.compliance.base64,
@@ -1034,16 +1094,44 @@ async function submitTrainingData(isGood = false) {
         });
         
         if (response.ok) {
+            const result = await response.json();
+            
             // Add to history
             state.trainingHistory.unshift(trainingData);
             updateTrainingHistory();
             
-            // Reset
-            document.getElementById('compliance-remove').click();
-            alert('Training data submitted successfully!');
+            // Reset form
+            state.compliance = { 
+                file: null, 
+                base64: null, 
+                mimeType: null, 
+                annotations: [], 
+                isAnnotating: false, 
+                currentColor: '#FF3D00' 
+            };
+            
+            document.getElementById('compliance-preview-container').classList.remove('active');
+            document.getElementById('annotation-container').classList.remove('active');
+            document.getElementById('annotation-tools').classList.add('hidden');
+            document.getElementById('mark-good-btn').disabled = true;
+            document.getElementById('mark-bad-btn').disabled = true;
+            document.getElementById('mark-good-btn').style.opacity = '1';
+            document.getElementById('compliance-file-input').value = '';
+            document.getElementById('annotation-text').value = '';
+            
+            // Reset button
+            const badBtn = document.getElementById('mark-bad-btn');
+            badBtn.innerHTML = '✗ Mark as Bad';
+            badBtn.classList.remove('btn-primary');
+            badBtn.classList.add('btn-danger');
+            
+            alert(`✅ Training data submitted successfully! (${result.totalEntries} total entries)`);
+        } else {
+            alert('❌ Failed to submit training data. Please try again.');
         }
     } catch (error) {
-        alert('Failed to submit training data.');
+        console.error('Training submission error:', error);
+        alert('❌ Failed to submit training data. Make sure the server is running.');
     }
 }
 
