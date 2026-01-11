@@ -287,21 +287,20 @@
     }
     
     /* Annotation Canvas */
-    .annotation-container {
-        position: relative;
-        display: none;
-    }
-    
-    .annotation-container.active {
-        display: block;
-    }
-    
     .annotation-canvas {
         position: absolute;
         top: 0;
         left: 0;
         cursor: crosshair;
         border-radius: 16px;
+        z-index: 10;
+        pointer-events: none;
+        display: none;
+    }
+    
+    .annotation-canvas.active {
+        display: block;
+        pointer-events: auto;
     }
     
     .annotation-tools {
@@ -695,12 +694,12 @@
                 </div>
                 
                 <div class="image-preview-container" id="compliance-preview-container">
-                    <img class="image-preview" id="compliance-preview" alt="Preview">
+                    <div style="position: relative;">
+                        <img class="image-preview" id="compliance-preview" alt="Preview">
+                        <canvas class="annotation-canvas" id="annotation-canvas"></canvas>
+                    </div>
                     <div class="image-overlay">
                         <button class="overlay-btn" id="compliance-remove">✕ Remove</button>
-                    </div>
-                    <div class="annotation-container" id="annotation-container">
-                        <canvas class="annotation-canvas" id="annotation-canvas"></canvas>
                     </div>
                 </div>
                 
@@ -859,10 +858,24 @@ document.getElementById('analysis-remove').addEventListener('click', () => {
 document.getElementById('compliance-remove').addEventListener('click', () => {
     state.compliance = { file: null, base64: null, mimeType: null, annotations: [], isAnnotating: false, currentColor: '#FF3D00' };
     document.getElementById('compliance-preview-container').classList.remove('active');
+    document.getElementById('annotation-canvas').classList.remove('active');
     document.getElementById('mark-good-btn').disabled = true;
     document.getElementById('mark-bad-btn').disabled = true;
+    document.getElementById('mark-good-btn').style.opacity = '1';
     document.getElementById('compliance-file-input').value = '';
     document.getElementById('annotation-tools').classList.add('hidden');
+    document.getElementById('annotation-text').value = '';
+    
+    // Clear canvas
+    const canvas = document.getElementById('annotation-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Reset button
+    const badBtn = document.getElementById('mark-bad-btn');
+    badBtn.innerHTML = '✗ Mark as Bad';
+    badBtn.classList.remove('btn-primary');
+    badBtn.classList.add('btn-danger');
 });
 
 // Analysis Function
@@ -1046,7 +1059,7 @@ document.getElementById('mark-bad-btn').addEventListener('click', () => {
     
     // Enable annotation mode
     state.compliance.isAnnotating = true;
-    document.getElementById('annotation-container').classList.add('active');
+    document.getElementById('annotation-canvas').classList.add('active');
     document.getElementById('annotation-tools').classList.remove('hidden');
     
     // Change button to submit
@@ -1111,13 +1124,18 @@ async function submitTrainingData(isGood = false) {
             };
             
             document.getElementById('compliance-preview-container').classList.remove('active');
-            document.getElementById('annotation-container').classList.remove('active');
+            document.getElementById('annotation-canvas').classList.remove('active');
             document.getElementById('annotation-tools').classList.add('hidden');
             document.getElementById('mark-good-btn').disabled = true;
             document.getElementById('mark-bad-btn').disabled = true;
             document.getElementById('mark-good-btn').style.opacity = '1';
             document.getElementById('compliance-file-input').value = '';
             document.getElementById('annotation-text').value = '';
+            
+            // Clear canvas
+            const canvas = document.getElementById('annotation-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Reset button
             const badBtn = document.getElementById('mark-bad-btn');
