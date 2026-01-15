@@ -1,1195 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Meter QC System</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<style>
-    :root {
-        --primary: #0066FF;
-        --primary-dark: #0052CC;
-        --success: #00C853;
-        --danger: #FF3D00;
-        --warning: #FFB300;
-        --bg: #0A0E27;
-        --surface: #151932;
-        --surface-light: #1E2340;
-        --text: #E8EAED;
-        --text-dim: #9BA3AF;
-        --border: #2A2F4A;
-    }
-    
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    body {
-        font-family: 'Outfit', sans-serif;
-        background: var(--bg);
-        color: var(--text);
-        min-height: 100vh;
-        overflow-x: hidden;
-    }
-    
-    /* Animated background */
-    body::before {
-        content: '';
-        position: fixed;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: 
-            radial-gradient(circle at 20% 50%, rgba(0, 102, 255, 0.08) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(0, 200, 83, 0.06) 0%, transparent 50%),
-            radial-gradient(circle at 40% 20%, rgba(255, 61, 0, 0.04) 0%, transparent 50%);
-        animation: drift 30s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 0;
-    }
-    
-    @keyframes drift {
-        0%, 100% { transform: translate(0, 0) rotate(0deg); }
-        33% { transform: translate(30px, -30px) rotate(1deg); }
-        66% { transform: translate(-20px, 20px) rotate(-1deg); }
-    }
-    
-    .container {
-        position: relative;
-        z-index: 1;
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 40px 20px;
-    }
-    
-    /* Header */
-    header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 60px;
-        padding-bottom: 30px;
-        border-bottom: 1px solid var(--border);
-    }
-    
-    .logo {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    
-    .logo-icon {
-        width: 40px;
-        height: 40px;
-        background: linear-gradient(135deg, var(--primary), var(--success));
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 20px;
-    }
-    
-    .logo h1 {
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-    }
-    
-    .mode-switcher {
-        display: flex;
-        gap: 8px;
-        background: var(--surface);
-        padding: 4px;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-    }
-    
-    .mode-btn {
-        padding: 10px 20px;
-        border: none;
-        background: transparent;
-        color: var(--text-dim);
-        font-family: 'Outfit', sans-serif;
-        font-size: 14px;
-        font-weight: 600;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-    }
-    
-    .mode-btn.active {
-        background: var(--primary);
-        color: white;
-        box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
-    }
-    
-    .mode-btn:not(.active):hover {
-        color: var(--text);
-    }
-    
-    /* Main Content */
-    .content {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 30px;
-    }
-    
-    @media (max-width: 968px) {
-        .content {
-            grid-template-columns: 1fr;
-        }
-    }
-    
-    .panel {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 32px;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .panel::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, var(--primary), var(--success));
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-    
-    .panel:hover::before {
-        opacity: 1;
-    }
-    
-    .panel-header {
-        margin-bottom: 24px;
-    }
-    
-    .panel-header h2 {
-        font-size: 20px;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-    
-    .panel-header p {
-        color: var(--text-dim);
-        font-size: 14px;
-    }
-    
-    /* Upload Zone */
-    .upload-zone {
-        border: 2px dashed var(--border);
-        border-radius: 16px;
-        padding: 40px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        background: var(--surface-light);
-    }
-    
-    .upload-zone:hover {
-        border-color: var(--primary);
-        background: rgba(0, 102, 255, 0.05);
-    }
-    
-    .upload-zone.dragover {
-        border-color: var(--primary);
-        background: rgba(0, 102, 255, 0.1);
-        transform: scale(1.02);
-    }
-    
-    .upload-icon {
-        width: 64px;
-        height: 64px;
-        margin: 0 auto 16px;
-        background: var(--surface);
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 32px;
-    }
-    
-    .upload-zone h3 {
-        font-size: 16px;
-        margin-bottom: 8px;
-        font-weight: 600;
-    }
-    
-    .upload-zone p {
-        color: var(--text-dim);
-        font-size: 13px;
-    }
-    
-    .file-input {
-        display: none;
-    }
-    
-    /* Image Preview */
-    .image-preview-container {
-        margin: 24px 0;
-        border-radius: 16px;
-        overflow: hidden;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        position: relative;
-        display: none;
-    }
-    
-    .image-preview-container.active {
-        display: block;
-    }
-    
-    .image-preview {
-        width: 100%;
-        height: auto;
-        max-height: 400px;
-        object-fit: contain;
-        display: block;
-    }
-    
-    .image-overlay {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        display: flex;
-        gap: 8px;
-    }
-    
-    .overlay-btn {
-        background: rgba(10, 14, 39, 0.8);
-        backdrop-filter: blur(10px);
-        border: 1px solid var(--border);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: 'Outfit', sans-serif;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-    
-    .overlay-btn:hover {
-        background: rgba(10, 14, 39, 0.95);
-        transform: translateY(-2px);
-    }
-    
-    /* Annotation Canvas */
-    .annotation-canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        cursor: crosshair;
-        border-radius: 16px;
-        z-index: 10;
-        pointer-events: none;
-        display: none;
-    }
-    
-    .annotation-canvas.active {
-        display: block;
-        pointer-events: auto;
-    }
-    
-    .annotation-tools {
-        display: flex;
-        gap: 12px;
-        margin-top: 16px;
-        padding: 16px;
-        background: var(--surface-light);
-        border-radius: 12px;
-        border: 1px solid var(--border);
-    }
-    
-    .color-picker {
-        display: flex;
-        gap: 8px;
-    }
-    
-    .color-option {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 2px solid transparent;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    
-    .color-option:hover {
-        transform: scale(1.1);
-    }
-    
-    .color-option.active {
-        border-color: white;
-        box-shadow: 0 0 0 2px var(--bg);
-    }
-    
-    .annotation-input {
-        flex: 1;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        color: var(--text);
-        padding: 10px 16px;
-        border-radius: 8px;
-        font-family: 'Outfit', sans-serif;
-        font-size: 14px;
-    }
-    
-    .annotation-input::placeholder {
-        color: var(--text-dim);
-    }
-    
-    .annotation-input:focus {
-        outline: none;
-        border-color: var(--primary);
-    }
-    
-    /* Buttons */
-    .btn {
-        padding: 14px 28px;
-        border: none;
-        border-radius: 12px;
-        font-family: 'Outfit', sans-serif;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.3);
-        transform: translate(-50%, -50%);
-        transition: width 0.6s, height 0.6s;
-    }
-    
-    .btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .btn-primary {
-        background: var(--primary);
-        color: white;
-        box-shadow: 0 4px 16px rgba(0, 102, 255, 0.3);
-    }
-    
-    .btn-primary:hover {
-        background: var(--primary-dark);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 102, 255, 0.4);
-    }
-    
-    .btn-primary:disabled {
-        background: var(--border);
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-    
-    .btn-success {
-        background: var(--success);
-        color: white;
-        box-shadow: 0 4px 16px rgba(0, 200, 83, 0.3);
-    }
-    
-    .btn-success:hover {
-        background: #00B04A;
-        transform: translateY(-2px);
-    }
-    
-    .btn-danger {
-        background: var(--danger);
-        color: white;
-        box-shadow: 0 4px 16px rgba(255, 61, 0, 0.3);
-    }
-    
-    .btn-danger:hover {
-        background: #E63500;
-        transform: translateY(-2px);
-    }
-    
-    .btn-secondary {
-        background: var(--surface-light);
-        color: var(--text);
-        border: 1px solid var(--border);
-    }
-    
-    .btn-secondary:hover {
-        background: var(--border);
-    }
-    
-    .btn-group {
-        display: flex;
-        gap: 12px;
-        margin-top: 20px;
-    }
-    
-    /* Results */
-    .results {
-        margin-top: 24px;
-        padding: 24px;
-        background: var(--surface-light);
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        min-height: 120px;
-        display: none;
-    }
-    
-    .results.active {
-        display: block;
-    }
-    
-    .results-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-    
-    .status-badge {
-        padding: 6px 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 600;
-        font-family: 'JetBrains Mono', monospace;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .status-badge.good {
-        background: rgba(0, 200, 83, 0.2);
-        color: var(--success);
-        border: 1px solid var(--success);
-    }
-    
-    .status-badge.bad {
-        background: rgba(255, 61, 0, 0.2);
-        color: var(--danger);
-        border: 1px solid var(--danger);
-    }
-    
-    .status-badge.analyzing {
-        background: rgba(0, 102, 255, 0.2);
-        color: var(--primary);
-        border: 1px solid var(--primary);
-    }
-    
-    .results-content {
-        color: var(--text);
-        line-height: 1.6;
-        font-size: 14px;
-    }
-    
-    /* Loading Spinner */
-    .spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid var(--border);
-        border-top-color: var(--primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 20px auto;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    /* Training History */
-    .training-history {
-        margin-top: 24px;
-    }
-    
-    .training-item {
-        background: var(--surface-light);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        display: flex;
-        gap: 16px;
-        align-items: start;
-        transition: all 0.3s ease;
-    }
-    
-    .training-item:hover {
-        border-color: var(--primary);
-        transform: translateX(4px);
-    }
-    
-    .training-thumb {
-        width: 80px;
-        height: 80px;
-        border-radius: 8px;
-        object-fit: cover;
-        background: var(--bg);
-    }
-    
-    .training-details {
-        flex: 1;
-    }
-    
-    .training-details h4 {
-        font-size: 14px;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .training-details p {
-        font-size: 13px;
-        color: var(--text-dim);
-        margin-bottom: 8px;
-    }
-    
-    .training-notes {
-        font-size: 12px;
-        color: var(--text);
-        background: var(--bg);
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    
-    /* Hidden elements */
-    .hidden {
-        display: none !important;
-    }
-    
-    /* Compliance Mode Specific */
-    #compliance-section {
-        display: none;
-    }
-    
-    #compliance-section.active {
-        display: block;
-    }
-    
-    #analysis-section.active {
-        display: block;
-    }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-        .container {
-            padding: 20px 16px;
-        }
-        
-        header {
-            flex-direction: column;
-            gap: 20px;
-            text-align: center;
-        }
-        
-        .btn-group {
-            flex-direction: column;
-        }
-        
-        .btn {
-            width: 100%;
-        }
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMeter AI Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-<div class="container">
-    <header>
-        <div class="logo">
-            <div class="logo-icon">⚡</div>
-            <h1>Smart Meter QC</h1>
+    <div class="grain-overlay"></div>
+    
+    <nav class="top-nav">
+        <div class="nav-content">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect x="4" y="4" width="24" height="24" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 10L16 22M10 16L22 16" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="16" cy="16" r="3" fill="currentColor"/>
+                </svg>
+                <span>SmartMeter AI</span>
+            </div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-view="inspect">Inspect</button>
+                <button class="nav-btn" data-view="train">Training Lab</button>
+                <button class="nav-btn" data-view="history">History</button>
+            </div>
         </div>
-        <div class="mode-switcher">
-            <button class="mode-btn active" data-mode="analysis">Analysis</button>
-            <button class="mode-btn" data-mode="compliance">Compliance Training</button>
-        </div>
-    </header>
+    </nav>
 
-    <!-- ANALYSIS MODE -->
-    <div id="analysis-section" class="active">
-        <div class="content">
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Upload Installation Photo</h2>
-                    <p>Drop an image or click to select a smart meter installation</p>
-                </div>
-                
-                <div class="upload-zone" id="analysis-upload-zone">
-                    <div class="upload-icon">📸</div>
-                    <h3>Click or drag image here</h3>
-                    <p>Supports JPG, PNG, WebP (max 10MB)</p>
-                    <input type="file" class="file-input" id="analysis-file-input" accept="image/*">
-                </div>
-                
-                <div class="image-preview-container" id="analysis-preview-container">
-                    <img class="image-preview" id="analysis-preview" alt="Preview">
-                    <div class="image-overlay">
-                        <button class="overlay-btn" id="analysis-remove">✕ Remove</button>
+    <main class="container">
+        <!-- Inspection View -->
+        <section id="inspect-view" class="view active">
+            <div class="hero-section">
+                <h1 class="glitch" data-text="Installation Inspector">Installation Inspector</h1>
+                <p class="subtitle">AI-powered quality assurance for smart meter installations</p>
+            </div>
+
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-content">
+                    <div class="upload-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <path d="M32 10L32 40M32 10L22 20M32 10L42 20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                            <rect x="10" y="45" width="44" height="8" stroke="currentColor" stroke-width="3"/>
+                        </svg>
                     </div>
+                    <h3>Drop meter installation photo</h3>
+                    <p>or click to browse</p>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                </div>
+            </div>
+
+            <div class="camera-controls">
+                <button class="btn-secondary" id="cameraBtn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <rect x="2" y="5" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="10" cy="11" r="3" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 5L8 2H12L13 5" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    Use Camera
+                </button>
+            </div>
+
+            <div class="preview-section" id="previewSection" style="display: none;">
+                <div class="preview-container">
+                    <img id="previewImage" alt="Preview">
+                    <div class="analysis-overlay" id="analysisOverlay"></div>
                 </div>
                 
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="analyze-btn" disabled>
-                        <span>🔍 Analyze Installation</span>
+                <div class="controls">
+                    <button class="btn-primary" id="analyzeBtn">
+                        <span class="btn-text">Analyze Installation</span>
+                        <span class="btn-loader"></span>
                     </button>
                 </div>
-            </div>
-            
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Analysis Results</h2>
-                    <p>AI-powered quality assessment</p>
-                </div>
-                
-                <div class="results" id="analysis-results">
-                    <div class="results-header">
-                        <div class="status-badge analyzing">Analyzing...</div>
-                    </div>
-                    <div class="spinner"></div>
-                </div>
-                
-                <div id="analysis-placeholder" style="padding: 40px; text-align: center; color: var(--text-dim);">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🤖</div>
-                    <p>Upload an image to begin analysis</p>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- COMPLIANCE TRAINING MODE -->
-    <div id="compliance-section">
-        <div class="content">
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Upload Training Image</h2>
-                    <p>Add examples to improve the system's accuracy</p>
-                </div>
-                
-                <div class="upload-zone" id="compliance-upload-zone">
-                    <div class="upload-icon">📋</div>
-                    <h3>Click or drag image here</h3>
-                    <p>Supports JPG, PNG, WebP (max 10MB)</p>
-                    <input type="file" class="file-input" id="compliance-file-input" accept="image/*">
-                </div>
-                
-                <div class="image-preview-container" id="compliance-preview-container">
-                    <div style="position: relative;">
-                        <img class="image-preview" id="compliance-preview" alt="Preview">
-                        <canvas class="annotation-canvas" id="annotation-canvas"></canvas>
+                <div class="results" id="results" style="display: none;">
+                    <div class="result-header">
+                        <div class="status-badge" id="statusBadge"></div>
+                        <div class="confidence-meter">
+                            <span class="confidence-label">Confidence</span>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" id="confidenceFill"></div>
+                            </div>
+                            <span class="confidence-value" id="confidenceValue">0%</span>
+                        </div>
                     </div>
-                    <div class="image-overlay">
-                        <button class="overlay-btn" id="compliance-remove">✕ Remove</button>
-                    </div>
-                </div>
-                
-                <div class="annotation-tools hidden" id="annotation-tools">
-                    <div class="color-picker">
-                        <div class="color-option active" data-color="#FF3D00" style="background: #FF3D00;"></div>
-                        <div class="color-option" data-color="#FFB300" style="background: #FFB300;"></div>
-                        <div class="color-option" data-color="#0066FF" style="background: #0066FF;"></div>
-                    </div>
-                    <input type="text" class="annotation-input" id="annotation-text" placeholder="Describe the issue...">
-                </div>
-                
-                <div class="btn-group">
-                    <button class="btn btn-success" id="mark-good-btn" disabled>✓ Mark as Good</button>
-                    <button class="btn btn-danger" id="mark-bad-btn" disabled>✗ Mark as Bad</button>
-                </div>
-            </div>
-            
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Training History</h2>
-                    <p>Recent submissions</p>
-                </div>
-                
-                <div class="training-history" id="training-history">
-                    <div style="padding: 40px; text-align: center; color: var(--text-dim);">
-                        <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
-                        <p>No training data yet</p>
+                    
+                    <div class="findings" id="findings"></div>
+
+                    <div class="action-buttons">
+                        <button class="btn-secondary" id="saveBtn">Save to History</button>
+                        <button class="btn-secondary" id="newCheckBtn">New Check</button>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
+        </section>
 
-<script>
-// State Management
-const state = {
-    currentMode: 'analysis',
-    analysis: {
-        file: null,
-        base64: null,
-        mimeType: null
-    },
-    compliance: {
-        file: null,
-        base64: null,
-        mimeType: null,
-        annotations: [],
-        isAnnotating: false,
-        currentColor: '#FF3D00'
-    },
-    trainingHistory: []
-};
-
-// Mode Switching
-document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const mode = btn.dataset.mode;
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        document.getElementById('analysis-section').classList.remove('active');
-        document.getElementById('compliance-section').classList.remove('active');
-        document.getElementById(`${mode}-section`).classList.add('active');
-        
-        state.currentMode = mode;
-    });
-});
-
-// Drag and Drop Handler
-function setupDragDrop(zone, input) {
-    zone.addEventListener('click', () => input.click());
-    
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('dragover');
-    });
-    
-    zone.addEventListener('dragleave', () => {
-        zone.classList.remove('dragover');
-    });
-    
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-            handleFileSelect(file, state.currentMode);
-        }
-    });
-}
-
-// File Selection Handler
-function handleFileSelect(file, mode) {
-    if (!file.type.startsWith('image/')) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1024;
-            const scale = Math.min(1, MAX_WIDTH / img.width);
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            const base64 = canvas.toDataURL(file.type).split(',')[1];
-            
-            if (mode === 'analysis') {
-                state.analysis.file = file;
-                state.analysis.base64 = base64;
-                state.analysis.mimeType = file.type;
-                document.getElementById('analysis-preview').src = canvas.toDataURL(file.type);
-                document.getElementById('analysis-preview-container').classList.add('active');
-                document.getElementById('analyze-btn').disabled = false;
-                document.getElementById('analysis-placeholder').style.display = 'none';
-            } else {
-                state.compliance.file = file;
-                state.compliance.base64 = base64;
-                state.compliance.mimeType = file.type;
-                document.getElementById('compliance-preview').src = canvas.toDataURL(file.type);
-                document.getElementById('compliance-preview-container').classList.add('active');
-                document.getElementById('mark-good-btn').disabled = false;
-                document.getElementById('mark-bad-btn').disabled = false;
-                setupAnnotationCanvas(canvas.toDataURL(file.type));
-            }
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-// Setup Upload Zones
-setupDragDrop(document.getElementById('analysis-upload-zone'), document.getElementById('analysis-file-input'));
-setupDragDrop(document.getElementById('compliance-upload-zone'), document.getElementById('compliance-file-input'));
-
-document.getElementById('analysis-file-input').addEventListener('change', (e) => {
-    if (e.target.files[0]) handleFileSelect(e.target.files[0], 'analysis');
-});
-
-document.getElementById('compliance-file-input').addEventListener('change', (e) => {
-    if (e.target.files[0]) handleFileSelect(e.target.files[0], 'compliance');
-});
-
-// Remove Buttons
-document.getElementById('analysis-remove').addEventListener('click', () => {
-    state.analysis = { file: null, base64: null, mimeType: null };
-    document.getElementById('analysis-preview-container').classList.remove('active');
-    document.getElementById('analyze-btn').disabled = true;
-    document.getElementById('analysis-file-input').value = '';
-});
-
-document.getElementById('compliance-remove').addEventListener('click', () => {
-    state.compliance = { file: null, base64: null, mimeType: null, annotations: [], isAnnotating: false, currentColor: '#FF3D00' };
-    document.getElementById('compliance-preview-container').classList.remove('active');
-    document.getElementById('annotation-canvas').classList.remove('active');
-    document.getElementById('mark-good-btn').disabled = true;
-    document.getElementById('mark-bad-btn').disabled = true;
-    document.getElementById('mark-good-btn').style.opacity = '1';
-    document.getElementById('compliance-file-input').value = '';
-    document.getElementById('annotation-tools').classList.add('hidden');
-    document.getElementById('annotation-text').value = '';
-    
-    // Clear canvas
-    const canvas = document.getElementById('annotation-canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Reset button
-    const badBtn = document.getElementById('mark-bad-btn');
-    badBtn.innerHTML = '✗ Mark as Bad';
-    badBtn.classList.remove('btn-primary');
-    badBtn.classList.add('btn-danger');
-});
-
-// Analysis Function
-document.getElementById('analyze-btn').addEventListener('click', async () => {
-    if (!state.analysis.base64) return;
-    
-    const resultsDiv = document.getElementById('analysis-results');
-    const placeholder = document.getElementById('analysis-placeholder');
-    
-    resultsDiv.innerHTML = `
-        <div class="results-header">
-            <div class="status-badge analyzing">Analyzing...</div>
-        </div>
-        <div class="spinner"></div>
-    `;
-    resultsDiv.classList.add('active');
-    placeholder.style.display = 'none';
-    
-    try {
-        const response = await fetch('http://localhost:3000/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    role: "user",
-                    parts: [
-                        { text: "Analyze this smart meter installation. Determine if it is 'Good' or 'Bad'. Provide specific details about installation quality, safety compliance, and any issues." },
-                        { inlineData: { mimeType: state.analysis.mimeType, data: state.analysis.base64 } }
-                    ]
-                }],
-                systemInstruction: { 
-                    parts: [{ text: "You are an expert smart meter quality control inspector. Provide clear, concise assessments of installation quality. Start your response with either 'Good' or 'Bad', then explain your reasoning." }] 
-                }
-            })
-        });
-        
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Unable to analyze image.";
-        
-        const isGood = /^good/i.test(text.trim());
-        const isBad = /^bad/i.test(text.trim());
-        
-        resultsDiv.innerHTML = `
-            <div class="results-header">
-                <div class="status-badge ${isGood ? 'good' : isBad ? 'bad' : 'analyzing'}">${isGood ? 'GOOD' : isBad ? 'BAD' : 'ANALYZED'}</div>
+        <!-- Training View -->
+        <section id="train-view" class="view">
+            <div class="hero-section">
+                <h1 class="glitch" data-text="Training Laboratory">Training Laboratory</h1>
+                <p class="subtitle">Teach the AI to recognize installation issues</p>
             </div>
-            <div class="results-content">${text}</div>
-        `;
-    } catch (error) {
-        resultsDiv.innerHTML = `
-            <div class="results-header">
-                <div class="status-badge bad">ERROR</div>
+
+            <div class="training-grid">
+                <div class="training-upload">
+                    <h3>Upload Training Image</h3>
+                    <div class="upload-zone small" id="trainingUploadZone">
+                        <div class="upload-content">
+                            <div class="upload-icon small">
+                                <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+                                    <path d="M32 10L32 40M32 10L22 20M32 10L42 20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                                    <rect x="10" y="45" width="44" height="8" stroke="currentColor" stroke-width="3"/>
+                                </svg>
+                            </div>
+                            <p>Drop image or click</p>
+                            <input type="file" id="trainingFileInput" accept="image/*" hidden>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="training-canvas-container" id="trainingCanvasContainer" style="display: none;">
+                    <div class="canvas-wrapper">
+                        <canvas id="trainingCanvas"></canvas>
+                        <div class="annotation-tools">
+                            <button class="tool-btn active" data-tool="box" title="Draw box">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <rect x="3" y="3" width="14" height="14" stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="clear" title="Clear annotations">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="training-form">
+                        <div class="form-group">
+                            <label>Issue Classification</label>
+                            <select id="issueType" class="form-control">
+                                <option value="">Select issue type...</option>
+                                <option value="improper-sealing">Improper Sealing</option>
+                                <option value="cable-management">Poor Cable Management</option>
+                                <option value="mounting-angle">Incorrect Mounting Angle</option>
+                                <option value="clearance">Insufficient Clearance</option>
+                                <option value="damage">Physical Damage</option>
+                                <option value="weatherproofing">Inadequate Weatherproofing</option>
+                                <option value="labeling">Missing/Incorrect Labeling</option>
+                                <option value="grounding">Grounding Issues</option>
+                                <option value="custom">Custom Issue</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="customIssueGroup" style="display: none;">
+                            <label>Custom Issue Name</label>
+                            <input type="text" id="customIssue" class="form-control" placeholder="Enter custom issue name">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="issueDescription" class="form-control" rows="3" placeholder="Describe what's wrong with this installation..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Severity</label>
+                            <div class="severity-selector">
+                                <button class="severity-btn" data-severity="low">Low</button>
+                                <button class="severity-btn" data-severity="medium">Medium</button>
+                                <button class="severity-btn" data-severity="high">High</button>
+                                <button class="severity-btn" data-severity="critical">Critical</button>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="submitTrainingBtn">
+                            <span class="btn-text">Submit Training Data</span>
+                            <span class="btn-loader"></span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="results-content">Failed to analyze image. Please check your connection and try again.</div>
-        `;
-    }
-});
 
-// Annotation Canvas Setup
-function setupAnnotationCanvas(imageSrc) {
-    const container = document.getElementById('annotation-container');
-    const canvas = document.getElementById('annotation-canvas');
-    const preview = document.getElementById('compliance-preview');
-    
-    // Wait for image to load, then resize canvas to match
-    const resizeCanvas = () => {
-        const rect = preview.getBoundingClientRect();
-        canvas.width = preview.naturalWidth;
-        canvas.height = preview.naturalHeight;
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
-        
-        // Redraw existing annotations after resize
-        redrawAnnotations();
-    };
-    
-    preview.onload = resizeCanvas;
-    window.addEventListener('resize', resizeCanvas);
-    
-    let isDrawing = false;
-    let startX, startY;
-    
-    function redrawAnnotations() {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        state.compliance.annotations.forEach(ann => {
-            ctx.strokeStyle = ann.color;
-            ctx.lineWidth = 4;
-            ctx.setLineDash([]);
-            ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
-            
-            // Add semi-transparent fill
-            ctx.fillStyle = ann.color + '33'; // 20% opacity
-            ctx.fillRect(ann.x, ann.y, ann.width, ann.height);
-        });
-    }
-    
-    canvas.addEventListener('mousedown', (e) => {
-        if (!state.compliance.isAnnotating) return;
-        isDrawing = true;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
-        startX = (e.clientX - rect.left) * scaleX;
-        startY = (e.clientY - rect.top) * scaleY;
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-        if (!isDrawing || !state.compliance.isAnnotating) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
-        const currentX = (e.clientX - rect.left) * scaleX;
-        const currentY = (e.clientY - rect.top) * scaleY;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Redraw existing annotations
-        redrawAnnotations();
-        
-        // Draw current rectangle
-        ctx.strokeStyle = state.compliance.currentColor;
-        ctx.lineWidth = 4;
-        ctx.setLineDash([5, 5]); // Dashed line for current drawing
-        ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
-    });
-    
-    canvas.addEventListener('mouseup', (e) => {
-        if (!isDrawing || !state.compliance.isAnnotating) return;
-        isDrawing = false;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
-        const endX = (e.clientX - rect.left) * scaleX;
-        const endY = (e.clientY - rect.top) * scaleY;
-        
-        const width = endX - startX;
-        const height = endY - startY;
-        
-        // Only add annotation if it's not too small
-        if (Math.abs(width) > 10 && Math.abs(height) > 10) {
-            const annotation = {
-                x: startX,
-                y: startY,
-                width: width,
-                height: height,
-                color: state.compliance.currentColor,
-                note: ''
-            };
-            
-            state.compliance.annotations.push(annotation);
-            redrawAnnotations();
-        }
-    });
-    
-    // Prevent default drag behavior
-    canvas.addEventListener('dragstart', (e) => e.preventDefault());
-}
-
-// Color Picker
-document.querySelectorAll('.color-option').forEach(option => {
-    option.addEventListener('click', () => {
-        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-        option.classList.add('active');
-        state.compliance.currentColor = option.dataset.color;
-    });
-});
-
-// Mark as Bad (Enable Annotation)
-document.getElementById('mark-bad-btn').addEventListener('click', () => {
-    if (state.compliance.isAnnotating) {
-        // Already annotating, this is now the submit button
-        submitTrainingData(false);
-        return;
-    }
-    
-    // Enable annotation mode
-    state.compliance.isAnnotating = true;
-    document.getElementById('annotation-canvas').classList.add('active');
-    document.getElementById('annotation-tools').classList.remove('hidden');
-    
-    // Change button to submit
-    const badBtn = document.getElementById('mark-bad-btn');
-    badBtn.innerHTML = '💾 Submit Training Data';
-    badBtn.classList.remove('btn-danger');
-    badBtn.classList.add('btn-primary');
-    
-    // Disable good button while annotating
-    document.getElementById('mark-good-btn').disabled = true;
-    document.getElementById('mark-good-btn').style.opacity = '0.5';
-    
-    // Show instructions
-    alert('Draw rectangles around problem areas on the image, then add notes describing the issues. Click "Submit Training Data" when done.');
-});
-
-// Mark as Good
-document.getElementById('mark-good-btn').addEventListener('click', async () => {
-    await submitTrainingData(true);
-});
-
-// Submit Training Data
-async function submitTrainingData(isGood = false) {
-    const notes = isGood ? 'Good installation' : document.getElementById('annotation-text').value || 'Bad installation';
-    
-    if (!isGood && state.compliance.annotations.length === 0 && !document.getElementById('annotation-text').value) {
-        alert('Please either draw annotations on the image or add notes describing the issues.');
-        return;
-    }
-    
-    const trainingData = {
-        image: state.compliance.base64,
-        mimeType: state.compliance.mimeType,
-        classification: isGood ? 'good' : 'bad',
-        notes: notes,
-        annotations: state.compliance.annotations,
-        timestamp: new Date().toISOString()
-    };
-    
-    try {
-        const response = await fetch('http://localhost:3000/training', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(trainingData)
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            
-            // Add to history
-            state.trainingHistory.unshift(trainingData);
-            updateTrainingHistory();
-            
-            // Reset form
-            state.compliance = { 
-                file: null, 
-                base64: null, 
-                mimeType: null, 
-                annotations: [], 
-                isAnnotating: false, 
-                currentColor: '#FF3D00' 
-            };
-            
-            document.getElementById('compliance-preview-container').classList.remove('active');
-            document.getElementById('annotation-canvas').classList.remove('active');
-            document.getElementById('annotation-tools').classList.add('hidden');
-            document.getElementById('mark-good-btn').disabled = true;
-            document.getElementById('mark-bad-btn').disabled = true;
-            document.getElementById('mark-good-btn').style.opacity = '1';
-            document.getElementById('compliance-file-input').value = '';
-            document.getElementById('annotation-text').value = '';
-            
-            // Clear canvas
-            const canvas = document.getElementById('annotation-canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Reset button
-            const badBtn = document.getElementById('mark-bad-btn');
-            badBtn.innerHTML = '✗ Mark as Bad';
-            badBtn.classList.remove('btn-primary');
-            badBtn.classList.add('btn-danger');
-            
-            alert(`✅ Training data submitted successfully! (${result.totalEntries} total entries)`);
-        } else {
-            alert('❌ Failed to submit training data. Please try again.');
-        }
-    } catch (error) {
-        console.error('Training submission error:', error);
-        alert('❌ Failed to submit training data. Make sure the server is running.');
-    }
-}
-
-// Update Training History Display
-function updateTrainingHistory() {
-    const historyDiv = document.getElementById('training-history');
-    
-    if (state.trainingHistory.length === 0) {
-        historyDiv.innerHTML = `
-            <div style="padding: 40px; text-align: center; color: var(--text-dim);">
-                <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
-                <p>No training data yet</p>
+            <div class="training-examples" id="trainingExamples">
+                <h3>Recent Training Data</h3>
+                <div class="examples-grid" id="examplesGrid">
+                    <div class="empty-state">
+                        <p>No training data yet. Upload images to get started.</p>
+                    </div>
+                </div>
             </div>
-        `;
-        return;
-    }
-    
-    historyDiv.innerHTML = state.trainingHistory.map(item => `
-        <div class="training-item">
-            <img src="data:${item.mimeType};base64,${item.image}" class="training-thumb" alt="Training image">
-            <div class="training-details">
-                <h4>
-                    <span class="status-badge ${item.classification}">${item.classification.toUpperCase()}</span>
-                    <span style="color: var(--text-dim); font-size: 12px; font-weight: 400;">${new Date(item.timestamp).toLocaleString()}</span>
-                </h4>
-                <p>${item.annotations.length} annotation(s)</p>
-                ${item.notes ? `<div class="training-notes">${item.notes}</div>` : ''}
-            </div>
-        </div>
-    `).join('');
-}
+        </section>
 
-// Load training history on startup
-fetch('http://localhost:3000/training-history')
-    .then(res => res.json())
-    .then(data => {
-        state.trainingHistory = data;
-        updateTrainingHistory();
-    })
-    .catch(() => {});
-</script>
+        <!-- History View -->
+        <section id="history-view" class="view">
+            <div class="hero-section">
+                <h1 class="glitch" data-text="Inspection History">Inspection History</h1>
+                <p class="subtitle">Review past meter installation checks</p>
+            </div>
+
+            <div class="history-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="pass">Passed</button>
+                <button class="filter-btn" data-filter="fail">Failed</button>
+            </div>
+
+            <div class="history-grid" id="historyGrid">
+                <div class="empty-state">
+                    <p>No inspection history yet. Complete your first check to see it here.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
 </body>
 </html>
